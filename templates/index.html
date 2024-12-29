@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Management</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h1 class="text-2xl mb-6">Kubernetes Management</h1>
+            
+            <div class="mb-4 border-b border-gray-700">
+                <ul class="flex">
+                    <li class="mr-1">
+                        <a href="#" class="tab-link bg-gray-700 inline-block py-2 px-4 rounded-t" data-tab="create">Create Environment</a>
+                    </li>
+                    <li class="mr-1">
+                        <a href="#" class="tab-link inline-block py-2 px-4" data-tab="manage">Reset/Remove</a>
+                    </li>
+                    <li class="mr-1">
+                        <a href="#" class="tab-link inline-block py-2 px-4" data-tab="status">Status</a>
+                    </li>
+                </ul>
+            </div>
+
+            <div id="create" class="tab-content">
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <select id="namespace" class="flex-1 bg-gray-700 rounded p-2">
+                            <option value="">Select Namespace</option>
+                            <option value="new">Add New Namespace</option>
+                        </select>
+                        <div id="newNamespaceInputs" class="hidden flex-1 space-x-2">
+                            <input type="text" id="newNamespace" placeholder="New namespace name" 
+                                   class="flex-1 bg-gray-700 rounded p-2">
+                            <button id="createNamespaceBtn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <input type="text" id="imageTag" placeholder="Image (repository/image:tag)" 
+                               class="w-full bg-gray-700 rounded p-2">
+                        <input type="number" id="port" placeholder="Container Port" min="1" max="65535"
+                               class="w-full bg-gray-700 rounded p-2">
+                    </div>
+                    <button id="deployBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full">
+                        Deploy App
+                    </button>
+                </div>
+            </div>
+
+            <div id="manage" class="tab-content hidden">
+                <div class="space-y-4">
+                    <select id="manageNamespace" class="w-full bg-gray-700 rounded p-2">
+                        <option value="">Select Namespace</option>
+                    </select>
+                    <div class="flex items-center mb-4">
+                        <input type="checkbox" id="deleteNamespace" class="mr-2">
+                        <label for="deleteNamespace">Delete namespace as well</label>
+                    </div>
+                    <div class="flex gap-4">
+                        <button id="resetBtn" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded flex-1">
+                            Reset
+                        </button>
+                        <button id="removeBtn" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded flex-1">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="status" class="tab-content hidden">
+                <div class="space-y-4">
+                    <select id="statusNamespace" class="w-full bg-gray-700 rounded p-2">
+                        <option value="">Select Namespace</option>
+                    </select>
+                    <div id="podsStatus" class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Pods</h3>
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="p-2">Pod Name</th>
+                                    <th class="p-2">Ready</th>
+                                    <th class="p-2">Status</th>
+                                    <th class="p-2">Restarts</th>
+                                    <th class="p-2">Age</th>
+                                    <th class="p-2">Image Tag</th>
+                                </tr>
+                            </thead>
+                            <tbody id="podsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="servicesStatus" class="mt-4">
+                        <h3 class="text-lg font-semibold mb-2">Services</h3>
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="p-2">Name</th>
+                                    <th class="p-2">Type</th>
+                                    <th class="p-2">Cluster IP</th>
+                                    <th class="p-2">Ports</th>
+                                    <th class="p-2">Age</th>
+                                </tr>
+                            </thead>
+                            <tbody id="servicesTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.tab-link').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('bg-gray-700'));
+                tab.classList.add('bg-gray-700');
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                document.getElementById(tab.dataset.tab).classList.remove('hidden');
+            });
+        });
+
+        document.getElementById('namespace').addEventListener('change', function() {
+            const newNamespaceInputs = document.getElementById('newNamespaceInputs');
+            if (this.value === 'new') {
+                newNamespaceInputs.classList.remove('hidden');
+                this.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('createNamespaceBtn').addEventListener('click', function() {
+            const namespaceName = document.getElementById('newNamespace').value;
+            if (!namespaceName) {
+                alert('Please enter namespace name');
+                return;
+            }
+            
+            fetch('/create_namespace', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ namespace: namespaceName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert('Namespace created successfully');
+                    location.reload();
+                }
+            });
+        });
+
+        document.getElementById('deployBtn').addEventListener('click', function() {
+            const namespace = document.getElementById('namespace').value;
+            const imageTag = document.getElementById('imageTag').value;
+            const port = document.getElementById('port').value;
+            
+            if (!namespace || namespace === 'new') {
+                alert('Please select a namespace');
+                return;
+            }
+            if (!imageTag || !port) {
+                alert('Please provide both image tag and port');
+                return;
+            }
+            
+            fetch('/deploy_app', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    namespace: namespace,
+                    image: imageTag,
+                    port: port
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert('Application deployed successfully');
+                    location.reload();
+                }
+            });
+        });
+
+        fetch('/get_namespaces')
+            .then(response => response.json())
+            .then(data => {
+                const namespaces = data.namespaces;
+                const namespaceSelects = document.querySelectorAll('#namespace, #manageNamespace, #statusNamespace');
+                namespaceSelects.forEach(select => {
+                    namespaces.forEach(ns => {
+                        const option = document.createElement('option');
+                        option.value = ns;
+                        option.textContent = ns;
+                        select.appendChild(option);
+                    });
+                    if (select.id === 'namespace' && !select.querySelector('option[value="new"]')) {
+                        const newOption = document.createElement('option');
+                        newOption.value = 'new';
+                        newOption.textContent = 'Add New Namespace';
+                        select.appendChild(newOption);
+                    }
+                });
+            });
+
+        document.getElementById('statusNamespace').addEventListener('change', function() {
+            if (this.value) {
+                // Fetch pods
+                fetch(`/get_pods/${this.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const tbody = document.getElementById('podsTableBody');
+                        tbody.innerHTML = '';
+                        data.pods.forEach(pod => {
+                            tbody.innerHTML += `
+                                <tr class="border-t border-gray-700">
+                                    <td class="p-2">${pod.name}</td>
+                                    <td class="p-2">${pod.ready}</td>
+                                    <td class="p-2">${pod.status}</td>
+                                    <td class="p-2">${pod.restarts}</td>
+                                    <td class="p-2">${pod.age}</td>
+                                    <td class="p-2">${pod.image_tag}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+                
+                // Fetch services
+                fetch(`/get_services/${this.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const tbody = document.getElementById('servicesTableBody');
+                        tbody.innerHTML = '';
+                        data.services.forEach(svc => {
+                            tbody.innerHTML += `
+                                <tr class="border-t border-gray-700">
+                                    <td class="p-2">${svc.name}</td>
+                                    <td class="p-2">${svc.type}</td>
+                                    <td class="p-2">${svc.cluster_ip}</td>
+                                    <td class="p-2">${svc.ports}</td>
+                                    <td class="p-2">${svc.age}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+            }
+        });
+
+        ['resetBtn', 'removeBtn'].forEach(id => {
+            document.getElementById(id).addEventListener('click', function() {
+                const namespace = document.getElementById('manageNamespace').value;
+                if (!namespace) {
+                    alert('Please select a namespace');
+                    return;
+                }
+                const deleteNamespace = document.getElementById('deleteNamespace').checked;
+                const action = id === 'resetBtn' ? 'reset' : 'remove';
+                if (confirm(`Are you sure you want to ${action} namespace ${namespace}${deleteNamespace ? ' and delete the namespace' : ''}?`)) {
+                    fetch(`/${action}_namespace/${namespace}?delete_namespace=${deleteNamespace}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                alert(data.error);
+                            } else {
+                                alert(`Namespace ${action}d successfully`);
+                                location.reload();
+                            }
+                        });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

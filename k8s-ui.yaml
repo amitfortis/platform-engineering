@@ -1,0 +1,84 @@
+# namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-ui
+
+---
+# serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-ui-sa
+  namespace: k8s-ui
+
+---
+# role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-ui-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "namespaces"]
+    verbs: ["get", "list", "watch", "create", "delete", "deletecollection"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["deletecollection"]
+---
+# rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-ui-binding
+subjects:
+  - kind: ServiceAccount
+    name: k8s-ui-sa
+    namespace: k8s-ui
+roleRef:
+  kind: ClusterRole
+  name: k8s-ui-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-ui
+  namespace: k8s-ui
+spec:
+  selector:
+    matchLabels:
+      app: k8s-ui
+  template:
+    metadata:
+      labels:
+        app: k8s-ui
+    spec:
+      serviceAccountName: k8s-ui-sa
+      containers:
+        - name: k8s-ui
+          image: amitfortis/k8s-ui:internal
+          ports:
+            - containerPort: 5000
+
+---
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-ui
+  namespace: k8s-ui
+spec:
+  type: NodePort
+  selector:
+    app: k8s-ui
+  ports:
+    - port: 5000
+      targetPort: 5000
